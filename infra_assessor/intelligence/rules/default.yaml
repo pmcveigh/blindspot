@@ -1,0 +1,80 @@
+- id: NET-001
+  title: Telnet service detected
+  severity: high
+  match: {service_names: [telnet]}
+  technical_description: A Telnet service was detected; Telnet normally sends management traffic without encryption.
+  customer_description: An administrative service using unencrypted communications was detected. Its configuration was not tested.
+  recommendation: Confirm whether Telnet is required and migrate management access to SSH where practical.
+  commercial_category: network_security_review
+- id: NET-002
+  title: FTP service detected
+  severity: medium
+  match: {service_names: [ftp]}
+  technical_description: An FTP service was observed. Conventional FTP does not protect credentials or data in transit.
+  customer_description: A legacy file-transfer service may expose information on the local network.
+  recommendation: Confirm the business requirement and consider SFTP or another encrypted transfer service.
+  commercial_category: secure_file_transfer
+- id: NET-003
+  title: Web service detected without HTTPS
+  severity: medium
+  match: {http_without_https: true}
+  technical_description: An HTTP service was detected without an observed HTTPS service on this host.
+  customer_description: A web interface may communicate without transport encryption; whether it is administrative requires review.
+  recommendation: Identify the interface, restrict access, and enable HTTPS if it handles sensitive or administrative data.
+  commercial_category: network_security_review
+- id: NET-004
+  title: Remote Desktop service detected
+  severity: medium
+  match: {service_names: [ms-wbt-server, rdp], ports: [3389]}
+  technical_description: A Microsoft Remote Desktop endpoint was detected on the local network.
+  customer_description: Remote administration is available and should be governed and access-controlled.
+  recommendation: Confirm authorised use, limit source access, and review authentication and patching controls.
+  commercial_category: managed_endpoint_security
+- id: NET-005
+  title: SMB file-sharing service detected
+  severity: medium
+  match: {ports: [445]}
+  technical_description: An SMB service was detected on the assessed network.
+  customer_description: Network file sharing is present; this is not inherently insecure but warrants configuration review.
+  recommendation: Review share permissions, supported SMB versions, patching, and network segmentation.
+  commercial_category: network_security_review
+- id: NET-006
+  title: SIP voice service detected
+  severity: low
+  match: {ports: [5060, 5061]}
+  technical_description: A SIP signalling endpoint was detected.
+  customer_description: Voice infrastructure appears to be present and may benefit from availability and segmentation review.
+  recommendation: Confirm ownership and review voice VLAN, access controls, encryption, and resilience.
+  commercial_category: unified_communications
+- id: NET-007
+  title: SSH management service detected
+  severity: informational
+  match: {service_names: [ssh], ports: [22]}
+  technical_description: An SSH service was detected. No insecure SSH configuration is asserted.
+  customer_description: Encrypted remote administration is available on this device.
+  recommendation: Confirm the service is required and apply key-based authentication and source restrictions where appropriate.
+  commercial_category: managed_infrastructure
+- id: NET-008
+  title: Database service exposed on the local network
+  severity: medium
+  match: {ports: [1433, 3306, 5432]}
+  technical_description: A commonly used database port responded on the assessed local network.
+  customer_description: A database service is reachable by systems in the assessed segment; its access controls were not tested.
+  recommendation: Validate the business requirement and restrict database access to approved application and administration hosts.
+  commercial_category: network_segmentation
+- id: NET-009
+  title: Unusually large number of TCP services
+  severity: medium
+  match: {min_tcp_services: 15}
+  technical_description: The device exposes at least 15 open TCP services, increasing its observable service surface.
+  customer_description: This device offers more network services than is typical and should be reviewed for necessity.
+  recommendation: Inventory each service and disable or restrict those without a current business requirement.
+  commercial_category: managed_infrastructure
+- id: NET-012
+  title: Unknown infrastructure device requires review
+  severity: informational
+  match: {device_type: unknown}
+  technical_description: Available scan evidence was insufficient for a reliable device classification.
+  customer_description: A responding device could not be confidently identified through safe network observations.
+  recommendation: Confirm the owner, purpose, and support status of this device manually.
+  commercial_category: asset_discovery
