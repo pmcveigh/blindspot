@@ -21,6 +21,19 @@ logger = logging.getLogger(__name__)
 tasks: dict[str, asyncio.Task[None]] = {}
 
 
+def _assessment_task_done(assessment_id: str, task: asyncio.Task[None]) -> None:
+    """Remove a finished task and retrieve any exception it returned."""
+    tasks.pop(assessment_id, None)
+    if task.cancelled():
+        return
+    try:
+        task.result()
+    except Exception:
+        # execute_assessment handles normal failures and records them in the database.
+        # This is a final safeguard for failures in that error-handling path.
+        logger.exception("Unhandled assessment task failure: %s", assessment_id)
+
+
 async def execute_assessment(assessment_id: str) -> None:
     session = SessionLocal()
     repo = Repository(session)
@@ -41,7 +54,6 @@ async def execute_assessment(assessment_id: str) -> None:
         repo.fail(assessment_id, "An unexpected local processing or database error occurred.")
     finally:
         session.close()
-        tasks.pop(assessment_id, None)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -57,7 +69,7 @@ def new_assessment(request: Request):
 
 
 @router.post("/assessments")
-def create_assessment(
+async def create_assessment(
     request: Request,
     db: DatabaseSession,
     customer_name: str = Form(...),
@@ -81,7 +93,9 @@ def create_assessment(
             status_code=422,
         )
     item = Repository(db).create_assessment(customer_name, target)
-    tasks[item.id] = asyncio.create_task(execute_assessment(item.id))
+    task = asyncio.create_task(execute_assessment(item.id))
+    tasks[item.id] = task
+    task.add_done_callback(lambda completed: _assessment_task_done(item.id, completed))
     return RedirectResponse(f"/assessments/{item.id}", status_code=303)
 
 
