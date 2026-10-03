@@ -1,4 +1,4 @@
-# Infra Assessor 0.1.0
+# Infra Assessor 0.1.2
 
 Infra Assessor is an Ubuntu-first, local application for **authorised pre-sales infrastructure assessments** by MSPs and telecoms providers. It safely discovers hosts and common TCP services, turns normalised observations into explainable review findings, and produces professional HTML/PDF reports. It is not a penetration-testing or vulnerability-exploitation tool. All results remain in local SQLite storage; the application has no cloud backend or telemetry.
 
@@ -63,7 +63,7 @@ Tests parse a fixture and never scan a network.
 
 Findings deliberately separate observed evidence, potential consideration, and recommendation. Device classifications include confidence and should be verified by a person.
 
-## v0.1.0 limitations
+## v0.1.2 limitations
 
 - Optimised for small authorised lab/business subnets; there is no scheduling, multi-user access, topology, continuous monitoring, cloud sync, or automated remediation.
 - Progress is stage-based. Inventory is committed after Nmap completes rather than streamed live.

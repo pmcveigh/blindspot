@@ -1,3 +1,5 @@
+import ipaddress
+import json
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
@@ -74,6 +76,14 @@ class Repository:
         if item:
             item.status, item.stage, item.error_message = status, "Assessment stopped", message
             item.completed_at = datetime.now(UTC)
+            if item.started_at:
+                item.elapsed_seconds = max(
+                    0,
+                    (
+                        item.completed_at.replace(tzinfo=None)
+                        - item.started_at.replace(tzinfo=None)
+                    ).total_seconds(),
+                )
             self.session.commit()
 
     def save_result(
@@ -92,6 +102,7 @@ class Repository:
                 hostname=observed.hostname,
                 device_type=observed.device_type,
                 classification_confidence=observed.classification_confidence,
+                classification_evidence=json.dumps(observed.classification_evidence),
                 os_guess=observed.os_guess,
             )
             self.session.add(device)
@@ -108,6 +119,8 @@ class Repository:
                         product=svc.product,
                         version=svc.version,
                         banner=svc.extra_info,
+                        identification_confidence=svc.identification_confidence,
+                        identification_source=svc.identification_source,
                     )
                 )
         for data in findings:
@@ -117,5 +130,17 @@ class Repository:
             )
         item.status, item.stage = "completed", "Assessment complete"
         item.completed_at = datetime.now(UTC)
+        started = item.started_at or result.started_at
+        # SQLite may return a naive datetime even for timezone-aware columns.
+        item.elapsed_seconds = max(
+            0,
+            (item.completed_at.replace(tzinfo=None) - started.replace(tzinfo=None)).total_seconds(),
+        )
+        item.addresses_in_target = (
+            result.addresses_in_target or ipaddress.ip_network(item.target_cidr).num_addresses
+        )
+        item.responding_hosts = len(result.devices)
+        item.services_discovered = sum(len(device.services) for device in result.devices)
+        item.findings_count = len(findings)
         item.scan_warnings = "\n".join(result.warnings) or None
         self.session.commit()

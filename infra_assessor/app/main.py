@@ -9,7 +9,7 @@ from infra_assessor.app.config import settings
 from infra_assessor.storage.database import initialise_database
 from infra_assessor.web.routes import router
 
-app = FastAPI(title="Infra Assessor", version="0.1.0", docs_url=None, redoc_url=None)
+app = FastAPI(title="Infra Assessor", version="0.1.2", docs_url=None, redoc_url=None)
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 app.mount("/static", StaticFiles(directory=PACKAGE_ROOT / "web" / "static"), name="static")
 app.include_router(router)

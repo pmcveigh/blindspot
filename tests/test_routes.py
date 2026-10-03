@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 
 from infra_assessor.app.dependencies import session_scope
 from infra_assessor.app.main import app
-from infra_assessor.storage.models import Base
+from infra_assessor.storage.models import Assessment, Base
 from infra_assessor.web import routes
 
 
@@ -27,7 +27,7 @@ def web_database():
             yield session
 
     app.dependency_overrides[session_scope] = override_session
-    yield
+    yield engine
     app.dependency_overrides.clear()
     routes.tasks.clear()
     engine.dispose()
@@ -46,9 +46,7 @@ async def test_create_assessment_schedules_task_redirects_and_removes_it(
 
     monkeypatch.setattr(routes, "execute_assessment", assessment_execution)
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/assessments",
             data={
@@ -81,9 +79,7 @@ async def test_assessment_task_failure_is_retrieved_without_crashing_app(
     monkeypatch.setattr(routes, "execute_assessment", failed_execution)
     caplog.set_level(logging.ERROR, logger=routes.__name__)
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/assessments",
             data={
@@ -102,3 +98,48 @@ async def test_assessment_task_failure_is_retrieved_without_crashing_app(
     assert dashboard.status_code == 200
     assert not routes.tasks
     assert "Unhandled assessment task failure" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("terminal", ["completed", "failed", "cancelled"])
+async def test_progress_poll_redirects_and_stops_on_terminal_state(
+    web_database, terminal: str
+) -> None:
+    with Session(web_database, expire_on_commit=False) as session:
+        item = Assessment(
+            customer_name="Acme",
+            target_cidr="10.0.0.0/24",
+            status=terminal,
+            stage="Stopped",
+        )
+        session.add(item)
+        session.commit()
+        assessment_id = item.id
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get(f"/assessments/{assessment_id}/progress")
+
+    assert response.status_code == 204
+    assert response.headers["hx-redirect"] == f"/assessments/{assessment_id}"
+    assert "hx-trigger" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_running_progress_fragment_polls_every_two_seconds(web_database) -> None:
+    with Session(web_database, expire_on_commit=False) as session:
+        item = Assessment(
+            customer_name="Acme",
+            target_cidr="10.0.0.0/24",
+            status="running",
+            stage="Running safe Nmap discovery",
+        )
+        session.add(item)
+        session.commit()
+        assessment_id = item.id
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get(f"/assessments/{assessment_id}/progress")
+
+    assert response.status_code == 200
+    assert 'hx-trigger="every 2s"' in response.text
+    assert "Running safe Nmap discovery" in response.text

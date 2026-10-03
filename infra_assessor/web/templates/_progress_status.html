@@ -1,0 +1,9 @@
+<div id="assessment-progress"
+     hx-get="/assessments/{{ assessment.id }}/progress"
+     hx-trigger="every 2s"
+     hx-target="this"
+     hx-swap="outerHTML">
+  <span class="status {{ assessment.status }}">{{ assessment.status }}</span>
+  <div class="progress"><i></i></div>
+  <p><b>Current stage:</b> {{ assessment.stage }}</p>
+</div>
