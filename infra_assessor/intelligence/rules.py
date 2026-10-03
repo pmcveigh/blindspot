@@ -9,7 +9,7 @@ from infra_assessor.scanner.models import Severity
 class Match(BaseModel):
     service_names: list[str] | None = None
     ports: list[int] | None = None
-    http_without_https: bool = False
+    plain_http: bool = False
     min_tcp_services: int | None = None
     device_type: str | None = None
 

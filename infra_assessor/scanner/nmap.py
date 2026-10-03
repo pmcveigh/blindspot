@@ -2,6 +2,7 @@ import asyncio
 import ipaddress
 import os
 import shutil
+from datetime import UTC, datetime
 
 from .base import ScanCancelled, ScannerError
 from .models import ScanResult
@@ -27,6 +28,7 @@ def validate_target(value: str) -> str:
 class NmapScanner:
     async def scan(self, target: str) -> ScanResult:
         target = validate_target(target)
+        started_at = datetime.now(UTC)
         binary = shutil.which("nmap")
         if not binary:
             raise ScannerError("Nmap is not installed or is not available on PATH.")
@@ -49,6 +51,9 @@ class NmapScanner:
             detail = stderr.decode(errors="replace").strip().splitlines()[-1:]
             raise ScannerError(f"Nmap failed: {detail[0] if detail else 'unknown error'}")
         result = parse_nmap_xml(stdout.decode(errors="replace"), target)
+        result.started_at = started_at
+        result.completed_at = datetime.now(UTC)
+        result.addresses_in_target = ipaddress.ip_network(target).num_addresses
         if not privileged:
             result.warnings.append(
                 "OS detection and raw-packet discovery were unavailable "

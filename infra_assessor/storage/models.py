@@ -1,7 +1,8 @@
+import json
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -25,8 +26,21 @@ class Assessment(Base):
     stage: Mapped[str] = mapped_column(String(100), default="Waiting to start")
     error_message: Mapped[str | None] = mapped_column(Text)
     scan_warnings: Mapped[str | None] = mapped_column(Text)
+    elapsed_seconds: Mapped[float | None] = mapped_column(Float)
+    addresses_in_target: Mapped[int | None] = mapped_column(Integer)
+    responding_hosts: Mapped[int | None] = mapped_column(Integer)
+    services_discovered: Mapped[int | None] = mapped_column(Integer)
+    findings_count: Mapped[int | None] = mapped_column(Integer)
     devices: Mapped[list["Device"]] = relationship(cascade="all, delete-orphan")
     findings: Mapped[list["Finding"]] = relationship(cascade="all, delete-orphan")
+
+    @property
+    def duration_seconds(self) -> float | None:
+        if self.elapsed_seconds is not None:
+            return self.elapsed_seconds
+        if self.started_at and self.completed_at:
+            return (self.completed_at - self.started_at).total_seconds()
+        return None
 
 
 class Device(Base):
@@ -39,9 +53,17 @@ class Device(Base):
     hostname: Mapped[str | None] = mapped_column(String(255))
     device_type: Mapped[str] = mapped_column(String(100), default="unknown")
     classification_confidence: Mapped[float | None]
+    classification_evidence: Mapped[str | None] = mapped_column(Text)
     os_guess: Mapped[str | None] = mapped_column(String(500))
     discovered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     services: Mapped[list["Service"]] = relationship(cascade="all, delete-orphan")
+
+    @property
+    def evidence_items(self) -> list[str]:
+        try:
+            return json.loads(self.classification_evidence or "[]")
+        except (TypeError, json.JSONDecodeError):
+            return []
 
 
 class Service(Base):
@@ -55,6 +77,8 @@ class Service(Base):
     product: Mapped[str | None] = mapped_column(String(255))
     version: Mapped[str | None] = mapped_column(String(100))
     banner: Mapped[str | None] = mapped_column(Text)
+    identification_confidence: Mapped[str] = mapped_column(String(20), default="unknown")
+    identification_source: Mapped[str | None] = mapped_column(String(255))
 
 
 class Finding(Base):

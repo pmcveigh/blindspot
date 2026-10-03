@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from infra_assessor.reporting.generator import render_report
 from infra_assessor.scanner.models import DeviceObservation, ScanResult, ServiceObservation
 from infra_assessor.storage.models import Base
 from infra_assessor.storage.repository import Repository
@@ -41,3 +42,12 @@ def test_assessment_inventory_and_findings_persist(tmp_path) -> None:
         assert loaded and loaded.status == "completed"
         assert loaded.devices[0].services[0].port == 22
         assert loaded.findings[0].device_id == loaded.devices[0].id
+        assert loaded.duration_seconds is not None
+        assert loaded.addresses_in_target == 256
+        assert loaded.responding_hosts == 1
+        assert loaded.services_discovered == 1
+        assert loaded.findings_count == 1
+        report = render_report(loaded)
+        assert "256" in report
+        assert "1</td><td>1</td><td>1" in report
+        assert "Completed in" in report

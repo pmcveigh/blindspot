@@ -1,6 +1,6 @@
 [project]
 name = "infra-assessor"
-version = "0.1.0"
+version = "0.1.2"
 description = "Safe, local network infrastructure assessments for authorised pre-sales use"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -36,4 +36,3 @@ check_untyped_defs = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-

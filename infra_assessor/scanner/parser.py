@@ -35,6 +35,8 @@ def parse_nmap_xml(xml: str, target: str) -> ScanResult:
                     product=svc.get("product") if svc is not None else None,
                     version=svc.get("version") if svc is not None else None,
                     extra_info=svc.get("extrainfo") if svc is not None else None,
+                    identification_confidence=_service_confidence(svc),
+                    identification_source=_service_source(svc),
                 )
             )
         osmatch = host.find("./os/osmatch")
@@ -46,6 +48,27 @@ def parse_nmap_xml(xml: str, target: str) -> ScanResult:
             os_guess=osmatch.get("name") if osmatch is not None else None,
             services=services,
         )
-        device.device_type, device.classification_confidence = classify_device(device)
+        device.device_type, device.classification_confidence, device.classification_evidence = (
+            classify_device(device, include_evidence=True)
+        )
         devices.append(device)
     return ScanResult(target=target, devices=devices)
+
+
+def _service_confidence(service: ET.Element | None) -> str:
+    if service is None or service.get("name", "unknown") == "unknown":
+        return "unknown"
+    if service.get("product") or service.get("version"):
+        return "strong"
+    # method=probed means Nmap received protocol evidence; table is only a port mapping.
+    return "probable" if service.get("method") == "probed" else "weak"
+
+
+def _service_source(service: ET.Element | None) -> str:
+    confidence = _service_confidence(service)
+    return {
+        "strong": "Nmap product/version fingerprint",
+        "probable": "Nmap protocol probe",
+        "weak": "Nmap service label (port-based mapping)",
+        "unknown": "No application identification",
+    }[confidence]

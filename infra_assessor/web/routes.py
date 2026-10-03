@@ -25,6 +25,8 @@ def _assessment_task_done(assessment_id: str, task: asyncio.Task[None]) -> None:
     """Remove a finished task and retrieve any exception it returned."""
     tasks.pop(assessment_id, None)
     if task.cancelled():
+        with SessionLocal() as session:
+            Repository(session).fail(assessment_id, "Assessment scan was cancelled.", "cancelled")
         return
     try:
         task.result()
@@ -32,6 +34,10 @@ def _assessment_task_done(assessment_id: str, task: asyncio.Task[None]) -> None:
         # execute_assessment handles normal failures and records them in the database.
         # This is a final safeguard for failures in that error-handling path.
         logger.exception("Unhandled assessment task failure: %s", assessment_id)
+        with SessionLocal() as session:
+            Repository(session).fail(
+                assessment_id, "An unexpected background processing error occurred."
+            )
 
 
 async def execute_assessment(assessment_id: str) -> None:
@@ -106,6 +112,17 @@ def assessment(request: Request, assessment_id: str, db: DatabaseSession):
         raise HTTPException(404)
     name = "progress.html" if item.status in {"pending", "running"} else "results.html"
     return templates.TemplateResponse(request, name, {"assessment": item})
+
+
+@router.get("/assessments/{assessment_id}/progress", response_class=HTMLResponse)
+def assessment_progress(request: Request, assessment_id: str, db: DatabaseSession):
+    """Small polling response; a terminal database state always leaves the progress view."""
+    item = Repository(db).get_assessment(assessment_id)
+    if not item:
+        raise HTTPException(404)
+    if item.status not in {"pending", "running"}:
+        return Response(status_code=204, headers={"HX-Redirect": f"/assessments/{item.id}"})
+    return templates.TemplateResponse(request, "_progress_status.html", {"assessment": item})
 
 
 @router.post("/assessments/{assessment_id}/cancel")

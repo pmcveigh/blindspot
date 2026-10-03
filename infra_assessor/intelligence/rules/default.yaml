@@ -15,12 +15,12 @@
   recommendation: Confirm the business requirement and consider SFTP or another encrypted transfer service.
   commercial_category: secure_file_transfer
 - id: NET-003
-  title: Web service detected without HTTPS
+  title: Unencrypted HTTP service detected
   severity: medium
-  match: {http_without_https: true}
-  technical_description: An HTTP service was detected without an observed HTTPS service on this host.
-  customer_description: A web interface may communicate without transport encryption; whether it is administrative requires review.
-  recommendation: Identify the interface, restrict access, and enable HTTPS if it handles sensitive or administrative data.
+  match: {plain_http: true}
+  technical_description: A listener was identified as plain HTTP. The assessment did not test its content, authentication, or sensitivity.
+  customer_description: Data exchanged through this listener may not be transport-encrypted. The assessment did not determine whether it handles sensitive or administrative information.
+  recommendation: Confirm the purpose of the listener. Use HTTPS or restrict access where appropriate if sensitive data or administration is involved.
   commercial_category: network_security_review
 - id: NET-004
   title: Remote Desktop service detected
@@ -55,12 +55,12 @@
   recommendation: Confirm the service is required and apply key-based authentication and source restrictions where appropriate.
   commercial_category: managed_infrastructure
 - id: NET-008
-  title: Database service exposed on the local network
+  title: Database service reachable from assessed network segment
   severity: medium
-  match: {ports: [1433, 3306, 5432]}
-  technical_description: A commonly used database port responded on the assessed local network.
-  customer_description: A database service is reachable by systems in the assessed segment; its access controls were not tested.
-  recommendation: Validate the business requirement and restrict database access to approved application and administration hosts.
+  match: {service_names: [ms-sql-s, mysql, postgresql], ports: [1433, 3306, 5432]}
+  technical_description: A service was identified as a database with probable or stronger confidence.
+  customer_description: Database services may contain business-sensitive information. The assessment did not test authentication, authorisation, or whether this exposure is required.
+  recommendation: Confirm the service is expected and restrict network access to approved systems where appropriate.
   commercial_category: network_segmentation
 - id: NET-009
   title: Unusually large number of TCP services
