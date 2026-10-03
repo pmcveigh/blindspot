@@ -1,6 +1,6 @@
-# Infra Assessor 0.1.2
+# Infra Assessor 0.1.3
 
-Infra Assessor is an Ubuntu-first, local application for **authorised pre-sales infrastructure assessments** by MSPs and telecoms providers. It safely discovers hosts and common TCP services, turns normalised observations into explainable review findings, and produces professional HTML/PDF reports. It is not a penetration-testing or vulnerability-exploitation tool. All results remain in local SQLite storage; the application has no cloud backend or telemetry.
+Infra Assessor is an Ubuntu-first, local application for **authorised pre-sales infrastructure assessments** by MSPs and telecoms providers. It discovers hosts, actively identifies supported protocols, performs optional bounded security validation, and produces evidence-backed HTML/PDF reports. It does not exploit vulnerabilities, attempt credentials, modify services, or test availability. All results remain in local SQLite storage; the application has no cloud backend or telemetry.
 
 ## Ubuntu installation
 
@@ -22,7 +22,7 @@ Playwright may report missing Chromium system libraries; `uv run playwright inst
 
 ## Authorised workflow
 
-Create an assessment, enter a customer and a canonical private IPv4 network (for example `192.168.1.0/24`), and explicitly confirm authorisation. A background task runs conservative Nmap discovery, stores normalised devices/services, applies YAML rules, and presents results. HTML reports open in the browser; PDF export uses local headless Chromium.
+Create an assessment, enter a customer and a canonical private IPv4 network (for example `192.168.1.0/24`), select Discovery, Active Identification (the default), or Security Validation, and explicitly confirm authorisation. The background pipeline is **Discover → Identify → Verify → Test → Report**. Protocol probes use bounded connections and safe negotiation only. HTML reports open in the browser; PDF export uses local headless Chromium.
 
 Only networks wholly contained by `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16` are accepted. Public, IPv6, host-bit-set, and arbitrary targets are rejected before Nmap starts.
 
@@ -55,6 +55,7 @@ Tests parse a fixture and never scan a network.
 ## Architecture
 
 - `scanner/`: the `NetworkScanner` protocol, one Nmap subprocess boundary, XML parser, normalised Pydantic observations, and conservative classification.
+- `probes/`: concurrent, timeout-bounded HTTP/TLS, DNS, PostgreSQL, SSH, and SMB protocol verification.
 - `intelligence/`: typed YAML rule loading and deterministic finding generation.
 - `storage/`: SQLAlchemy 2.x models and repository-backed local SQLite persistence.
 - `web/`: FastAPI routes, server-rendered Jinja pages, HTMX progress polling, and static styling.
@@ -63,11 +64,11 @@ Tests parse a fixture and never scan a network.
 
 Findings deliberately separate observed evidence, potential consideration, and recommendation. Device classifications include confidence and should be verified by a person.
 
-## v0.1.2 limitations
+## v0.1.3 limitations
 
 - Optimised for small authorised lab/business subnets; there is no scheduling, multi-user access, topology, continuous monitoring, cloud sync, or automated remediation.
 - Progress is stage-based. Inventory is committed after Nmap completes rather than streamed live.
 - Cancellation applies to tasks in the current application process. In-progress assessments are not resumed after a server restart.
-- TLS certificate inspection is not implemented, so expiry rules are intentionally omitted rather than making unsupported claims.
-- Service and OS identification depend on Nmap evidence, reachability, firewall policy, privileges, and the Nmap fingerprint database.
+- Certificate metadata depends on what the TLS peer exposes; a certificate hash and negotiated TLS version are retained even when full decoded fields are unavailable.
+- Unsupported services remain explicitly inferred from their original Nmap observation rather than being reported as confirmed products.
 - PDF export requires the separately installed Playwright Chromium browser.

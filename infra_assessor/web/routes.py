@@ -9,8 +9,10 @@ from fastapi.templating import Jinja2Templates
 from infra_assessor.app.dependencies import DatabaseSession
 from infra_assessor.intelligence.engine import generate_findings
 from infra_assessor.intelligence.rules import load_rules
+from infra_assessor.probes import probe_services
 from infra_assessor.reporting.generator import render_pdf, render_report
 from infra_assessor.scanner.base import ScanCancelled, ScannerError
+from infra_assessor.scanner.models import AssessmentLevel
 from infra_assessor.scanner.nmap import NmapScanner, validate_target
 from infra_assessor.storage.database import SessionLocal
 from infra_assessor.storage.repository import Repository
@@ -49,6 +51,15 @@ async def execute_assessment(assessment_id: str) -> None:
             return
         repo.start(assessment_id)
         result = await NmapScanner().scan(assessment.target_cidr)
+        level = AssessmentLevel(assessment.assessment_level)
+        if level != AssessmentLevel.discovery:
+            assessment.stage = (
+                "Actively identifying services"
+                if level == AssessmentLevel.active_identification
+                else "Actively identifying and safely validating services"
+            )
+            session.commit()
+            result = await probe_services(result, level)
         repo.save_result(assessment_id, result, generate_findings(result, load_rules()))
     except ScanCancelled as exc:
         repo.fail(assessment_id, str(exc), "cancelled")
@@ -81,6 +92,7 @@ async def create_assessment(
     customer_name: str = Form(...),
     target_cidr: str = Form(...),
     authorised: str | None = Form(None),
+    assessment_level: str = Form(AssessmentLevel.active_identification.value),
 ):
     error = None
     if not authorised:
@@ -91,14 +103,23 @@ async def create_assessment(
         target = validate_target(target_cidr)
     except ValueError as exc:
         error, target = str(exc), target_cidr
+    try:
+        level = AssessmentLevel(assessment_level)
+    except ValueError:
+        error, level = "Select a valid assessment level.", AssessmentLevel.active_identification
     if error:
         return templates.TemplateResponse(
             request,
             "new.html",
-            {"error": error, "customer_name": customer_name, "target_cidr": target_cidr},
+            {
+                "error": error,
+                "customer_name": customer_name,
+                "target_cidr": target_cidr,
+                "assessment_level": assessment_level,
+            },
             status_code=422,
         )
-    item = Repository(db).create_assessment(customer_name, target)
+    item = Repository(db).create_assessment(customer_name, target, level)
     task = asyncio.create_task(execute_assessment(item.id))
     tasks[item.id] = task
     task.add_done_callback(lambda completed: _assessment_task_done(item.id, completed))
