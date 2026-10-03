@@ -15,6 +15,7 @@ def initialise_database() -> None:
     # databases created by v0.1.0 usable without a migration framework.
     additions = {
         "assessments": {
+            "assessment_level": "VARCHAR(40) DEFAULT 'active_identification'",
             "elapsed_seconds": "FLOAT",
             "addresses_in_target": "INTEGER",
             "responding_hosts": "INTEGER",
@@ -25,6 +26,9 @@ def initialise_database() -> None:
         "services": {
             "identification_confidence": "VARCHAR(20) DEFAULT 'unknown'",
             "identification_source": "VARCHAR(255)",
+            "identified_protocol": "VARCHAR(50)",
+            "evidence_state": "VARCHAR(20) DEFAULT 'inferred'",
+            "probe_evidence": "TEXT",
         },
     }
     with engine.begin() as connection:

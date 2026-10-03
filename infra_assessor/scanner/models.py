@@ -12,6 +12,30 @@ class Severity(StrEnum):
     informational = "informational"
 
 
+class AssessmentLevel(StrEnum):
+    discovery = "discovery"
+    active_identification = "active_identification"
+    security_validation = "security_validation"
+
+
+class EvidenceState(StrEnum):
+    inferred = "inferred"
+    probable = "probable"
+    confirmed = "confirmed"
+    validated = "validated"
+
+
+class ProbeEvidence(BaseModel):
+    probe_type: str
+    target: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    outcome: str
+    summary: str
+    state: EvidenceState = EvidenceState.inferred
+    error: str | None = None
+    details: dict[str, object] = Field(default_factory=dict)
+
+
 class ServiceObservation(BaseModel):
     port: int
     protocol: str = "tcp"
@@ -22,15 +46,21 @@ class ServiceObservation(BaseModel):
     extra_info: str | None = None
     identification_confidence: str = "unknown"
     identification_source: str = "No application identification"
+    identified_protocol: str | None = None
+    evidence_state: EvidenceState = EvidenceState.inferred
+    probe_evidence: list[ProbeEvidence] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def derive_identification(self) -> "ServiceObservation":
         """Describe what Nmap actually established, rather than promoting a port label."""
         if self.identification_confidence != "unknown":
+            if self.identification_confidence in {"strong", "probable"}:
+                self.evidence_state = EvidenceState.probable
             return self
         if self.product or self.version:
             self.identification_confidence = "strong"
             self.identification_source = "Nmap product/version fingerprint"
+            self.evidence_state = EvidenceState.probable
         elif self.name and self.name != "unknown":
             self.identification_confidence = "weak"
             self.identification_source = "Nmap service label (may be port-based)"
@@ -56,3 +86,4 @@ class ScanResult(BaseModel):
     completed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     warnings: list[str] = Field(default_factory=list)
     addresses_in_target: int | None = None
+    assessment_level: AssessmentLevel = AssessmentLevel.discovery

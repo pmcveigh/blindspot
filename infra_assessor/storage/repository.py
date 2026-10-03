@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from infra_assessor.scanner.models import ScanResult
+from infra_assessor.scanner.models import AssessmentLevel, ScanResult
 
 from .models import Assessment, Device, Finding, Service
 
@@ -14,8 +14,15 @@ class Repository:
     def __init__(self, session: Session):
         self.session = session
 
-    def create_assessment(self, customer: str, target: str) -> Assessment:
-        item = Assessment(customer_name=customer.strip(), target_cidr=target)
+    def create_assessment(
+        self,
+        customer: str,
+        target: str,
+        level: AssessmentLevel = AssessmentLevel.active_identification,
+    ) -> Assessment:
+        item = Assessment(
+            customer_name=customer.strip(), target_cidr=target, assessment_level=level.value
+        )
         self.session.add(item)
         self.session.commit()
         return item
@@ -121,6 +128,11 @@ class Repository:
                         banner=svc.extra_info,
                         identification_confidence=svc.identification_confidence,
                         identification_source=svc.identification_source,
+                        identified_protocol=svc.identified_protocol,
+                        evidence_state=svc.evidence_state.value,
+                        probe_evidence=json.dumps(
+                            [e.model_dump(mode="json") for e in svc.probe_evidence]
+                        ),
                     )
                 )
         for data in findings:

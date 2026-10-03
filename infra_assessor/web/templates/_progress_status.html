@@ -5,5 +5,5 @@
      hx-swap="outerHTML">
   <span class="status {{ assessment.status }}">{{ assessment.status }}</span>
   <div class="progress"><i></i></div>
-  <p><b>Current stage:</b> {{ assessment.stage }}</p>
+  <p><b>Assessment level:</b> {{ assessment.assessment_level|replace("_", " ")|title }}</p><p><b>Current stage:</b> {{ assessment.stage }}</p>
 </div>

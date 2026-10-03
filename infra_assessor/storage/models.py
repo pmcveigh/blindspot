@@ -31,6 +31,7 @@ class Assessment(Base):
     responding_hosts: Mapped[int | None] = mapped_column(Integer)
     services_discovered: Mapped[int | None] = mapped_column(Integer)
     findings_count: Mapped[int | None] = mapped_column(Integer)
+    assessment_level: Mapped[str] = mapped_column(String(40), default="active_identification")
     devices: Mapped[list["Device"]] = relationship(cascade="all, delete-orphan")
     findings: Mapped[list["Finding"]] = relationship(cascade="all, delete-orphan")
 
@@ -79,6 +80,16 @@ class Service(Base):
     banner: Mapped[str | None] = mapped_column(Text)
     identification_confidence: Mapped[str] = mapped_column(String(20), default="unknown")
     identification_source: Mapped[str | None] = mapped_column(String(255))
+    identified_protocol: Mapped[str | None] = mapped_column(String(50))
+    evidence_state: Mapped[str] = mapped_column(String(20), default="inferred")
+    probe_evidence: Mapped[str | None] = mapped_column(Text)
+
+    @property
+    def evidence_items(self) -> list[dict[str, object]]:
+        try:
+            return json.loads(self.probe_evidence or "[]")
+        except (TypeError, json.JSONDecodeError):
+            return []
 
 
 class Finding(Base):
